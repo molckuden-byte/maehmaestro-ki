@@ -1,0 +1,1251 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MähMaestro KI · Grundstücksanalyse</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --green: #2d5a1b; --green-mid: #3d7a26; --green-light: #5aa832;
+  --cream: #f5f0e8; --gold: #c8a84b; --gold-light: #e2c472;
+  --dark: #1a1f16; --muted: #7a8070;
+}
+html { scroll-behavior: smooth; }
+body { font-family: 'DM Sans', sans-serif; background: var(--dark); color: var(--cream); min-height: 100vh; overflow-x: hidden; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.1rem 2.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(26,31,22,0.96); backdrop-filter: blur(12px);
+  position: sticky; top: 0; z-index: 50;
+}
+.logo { font-family: 'Playfair Display', serif; font-size: 1.25rem; font-weight: 700; color: var(--cream); }
+.logo span { color: var(--gold); }
+.hbadge { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--green-light); background: rgba(90,168,50,0.12); border: 1px solid rgba(90,168,50,0.25); padding: 0.28rem 0.75rem; border-radius: 100px; }
+.hkey { font-size: 0.75rem; color: var(--muted); cursor: pointer; padding: 0.3rem 0.6rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; background: none; transition: all 0.2s; }
+.hkey:hover { color: var(--cream); border-color: rgba(255,255,255,0.25); }
+
+/* ── SETUP SCREEN ── */
+#setupScreen { min-height: calc(100vh - 60px); display: flex; align-items: center; justify-content: center; padding: 2rem; }
+.setup-box { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 14px; padding: 2.5rem; max-width: 500px; width: 100%; }
+.setup-title { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 700; margin-bottom: 0.4rem; }
+.setup-sub { font-size: 0.85rem; color: var(--muted); line-height: 1.7; margin-bottom: 2rem; }
+.key-block { margin-bottom: 1.2rem; }
+.key-label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.4rem; }
+.key-required { color: var(--green-light); font-size: 0.65rem; }
+.key-optional { color: var(--muted); font-size: 0.65rem; }
+.key-input { width: 100%; padding: 0.8rem 1rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+.key-input:focus { border-color: var(--green-light); }
+.key-input::placeholder { color: var(--muted); }
+.key-hint { font-size: 0.73rem; color: var(--muted); margin-top: 0.4rem; line-height: 1.5; }
+.key-hint a { color: var(--gold); text-decoration: none; }
+.key-hint a:hover { text-decoration: underline; }
+.sat-info { background: rgba(90,168,50,0.08); border: 1px solid rgba(90,168,50,0.2); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.82rem; color: rgba(245,240,232,0.7); line-height: 1.6; }
+.sat-info strong { color: var(--green-light); }
+.btn-setup { width: 100%; padding: 0.9rem; background: var(--green); color: var(--cream); border: none; border-radius: 6px; font-family: 'DM Sans', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+.btn-setup:hover { background: var(--green-mid); }
+.btn-setup:disabled { background: rgba(255,255,255,0.08); color: var(--muted); cursor: not-allowed; }
+.err { color: #f09595; font-size: 0.78rem; margin-top: 0.4rem; display: none; }
+
+/* ── APP ── */
+#appScreen { display: none; padding: 2rem 2.5rem 4rem; max-width: 1100px; margin: 0 auto; }
+
+.steps-bar { display: flex; align-items: center; margin-bottom: 3rem; }
+.step-item { display: flex; align-items: center; gap: 0.55rem; flex: 1; }
+.step-num { width: 30px; height: 30px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.15); display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 500; color: var(--muted); flex-shrink: 0; transition: all 0.3s; }
+.step-num.active { border-color: var(--green-light); color: var(--green-light); background: rgba(90,168,50,0.1); }
+.step-num.done { border-color: var(--green); background: var(--green); color: var(--cream); }
+.step-label { font-size: 0.78rem; color: var(--muted); transition: color 0.3s; }
+.step-label.active { color: var(--cream); font-weight: 500; }
+.step-line { flex: 1; height: 1px; background: rgba(255,255,255,0.08); margin: 0 0.4rem; max-width: 50px; }
+
+.panel { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 1.6rem; margin-bottom: 1rem; }
+.panel-tag { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.8rem; }
+.panel-h { font-family: 'Playfair Display', serif; font-size: 1.55rem; font-weight: 700; margin-bottom: 0.4rem; }
+.panel-h em { color: var(--green-light); font-style: italic; }
+.panel-sub { font-size: 0.86rem; color: var(--muted); line-height: 1.6; }
+
+/* Upload */
+.upload-zone { border: 1.5px dashed rgba(255,255,255,0.18); border-radius: 8px; padding: 2rem 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 0.8rem; }
+.upload-zone:hover, .upload-zone.drag { border-color: var(--green-light); background: rgba(90,168,50,0.06); }
+.upload-zone .uicon { font-size: 1.8rem; margin-bottom: 0.6rem; }
+.upload-zone .utxt { font-size: 0.88rem; color: var(--cream); font-weight: 500; }
+.upload-zone .uhint { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+.preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 6px; margin-top: 0.8rem; }
+.preview-img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+
+/* Address + satellite */
+.addr-row { display: flex; gap: 0.6rem; margin-top: 0.6rem; }
+.addr-input { flex: 1; padding: 0.8rem 1rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; transition: border-color 0.2s; }
+.addr-input:focus { border-color: var(--green-light); }
+.addr-input::placeholder { color: var(--muted); }
+.btn-sat { padding: 0.8rem 1.1rem; background: var(--green); border: none; border-radius: 6px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.84rem; font-weight: 500; cursor: pointer; white-space: nowrap; transition: background 0.2s; flex-shrink: 0; }
+.btn-sat:hover { background: var(--green-mid); }
+.btn-sat:disabled { background: rgba(255,255,255,0.08); color: var(--muted); cursor: not-allowed; }
+
+/* Satellite preview */
+#satPreview { display: none; margin-top: 1rem; border-radius: 8px; overflow: hidden; position: relative; }
+#satImg { width: 100%; max-height: 280px; object-fit: cover; display: block; border-radius: 8px; }
+.sat-overlay { position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(transparent, rgba(0,0,0,0.7)); padding: 1rem; display: flex; align-items: center; justify-content: space-between; }
+.sat-label { font-size: 0.75rem; color: rgba(255,255,255,0.8); }
+.sat-status { font-size: 0.72rem; background: rgba(90,168,50,0.8); color: #fff; padding: 0.2rem 0.7rem; border-radius: 100px; }
+.sat-loading { padding: 2rem; text-align: center; background: rgba(255,255,255,0.04); border-radius: 8px; margin-top: 1rem; font-size: 0.85rem; color: var(--muted); display: none; }
+.sat-nokey { font-size: 0.78rem; color: var(--muted); margin-top: 0.6rem; padding: 0.6rem 0.8rem; background: rgba(255,255,255,0.03); border-radius: 6px; border: 1px solid rgba(255,255,255,0.06); }
+
+/* Chips */
+.chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.7rem; }
+.chip { padding: 0.5rem 1rem; border-radius: 100px; border: 1px solid rgba(255,255,255,0.14); font-size: 0.82rem; cursor: pointer; background: transparent; color: rgba(245,240,232,0.65); transition: all 0.15s; user-select: none; }
+.chip:hover { border-color: var(--green-light); color: var(--cream); background: rgba(90,168,50,0.08); }
+.chip.sel { background: var(--green); border-color: var(--green); color: var(--cream); font-weight: 500; }
+
+/* Slider */
+.slider-row { display: flex; align-items: center; gap: 1rem; margin-top: 0.7rem; }
+.slider-row input[type=range] { flex: 1; accent-color: var(--green-light); }
+.slider-val { font-size: 1rem; font-weight: 500; min-width: 90px; text-align: right; }
+
+/* Textarea */
+.extra-ta { width: 100%; padding: 0.8rem 1rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.86rem; resize: vertical; min-height: 80px; outline: none; margin-top: 0.5rem; }
+.extra-ta:focus { border-color: var(--green-light); }
+.extra-ta::placeholder { color: var(--muted); }
+
+/* Nav buttons */
+.nav-row { display: flex; gap: 0.8rem; margin-top: 1.8rem; }
+.btn-back { padding: 0.82rem 1.6rem; background: transparent; border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; cursor: pointer; transition: all 0.2s; }
+.btn-back:hover { border-color: rgba(255,255,255,0.28); color: var(--cream); }
+.btn-next { flex: 1; padding: 0.82rem; background: var(--green); border: none; border-radius: 6px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.92rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+.btn-next:hover { background: var(--green-mid); }
+.btn-next:disabled { background: rgba(255,255,255,0.07); color: var(--muted); cursor: not-allowed; }
+
+/* Analyzing */
+.analyzing-wrap { text-align: center; padding: 4rem 2rem; }
+.spinner { width: 52px; height: 52px; border: 3px solid rgba(255,255,255,0.07); border-top-color: var(--green-light); border-radius: 50%; margin: 0 auto 2rem; animation: spin 0.85s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.asteps { max-width: 340px; margin: 2rem auto 0; text-align: left; }
+.astep { display: flex; gap: 0.7rem; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.84rem; color: var(--muted); transition: color 0.3s; }
+.astep.done { color: var(--green-light); }
+.astep.cur { color: var(--cream); font-weight: 500; }
+
+/* Result */
+.result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; margin-top: 1.2rem; }
+.result-main { background: rgba(45,90,27,0.14); border: 1.5px solid var(--green-light); border-radius: 10px; padding: 1.6rem; position: relative; }
+.result-badge { position: absolute; top: -11px; left: 18px; background: var(--green-light); color: var(--dark); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.22rem 0.85rem; border-radius: 100px; }
+.result-alt { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.09); border-radius: 10px; padding: 1.6rem; }
+.res-brand { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.3rem; }
+.res-model { font-family: 'Playfair Display', serif; font-size: 1.75rem; font-weight: 900; margin-bottom: 0.25rem; }
+.res-price { font-size: 1.2rem; font-weight: 500; color: var(--green-light); margin-bottom: 1rem; }
+.result-alt .res-price { color: var(--cream); font-size: 1rem; }
+.reasons { display: flex; flex-direction: column; gap: 0.55rem; }
+.ritem { display: flex; gap: 0.55rem; align-items: flex-start; font-size: 0.83rem; color: rgba(245,240,232,0.72); line-height: 1.5; }
+.rcheck { color: var(--green-light); flex-shrink: 0; margin-top: 1px; }
+
+/* Satellite in result */
+.sat-result { margin-top: 1rem; border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }
+.sat-result img { width: 100%; max-height: 160px; object-fit: cover; display: block; }
+.sat-result-label { font-size: 0.72rem; color: var(--muted); padding: 0.4rem 0.6rem; background: rgba(0,0,0,0.3); }
+
+/* AI box */
+.ai-box { background: rgba(200,168,75,0.06); border: 1px solid rgba(200,168,75,0.18); border-radius: 10px; padding: 1.4rem; margin-top: 1.2rem; }
+.ai-box-title { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--gold); margin-bottom: 0.7rem; }
+.ai-text { font-size: 0.87rem; color: rgba(245,240,232,0.8); line-height: 1.75; white-space: pre-wrap; }
+.ai-cursor { display: inline-block; width: 2px; height: 1em; background: var(--gold); animation: blink 0.8s step-end infinite; vertical-align: text-bottom; margin-left: 1px; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+/* CTA */
+.cta-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-top: 1.2rem; }
+.btn-gold { padding: 0.88rem; border-radius: 6px; background: var(--gold); color: var(--dark); border: none; font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: background 0.2s; }
+.btn-gold:hover { background: var(--gold-light); }
+.btn-out { padding: 0.88rem; border-radius: 6px; background: transparent; color: var(--cream); border: 1px solid rgba(255,255,255,0.18); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+.btn-out:hover { background: rgba(255,255,255,0.05); }
+
+/* Chat */
+.chat-section { margin-top: 1.8rem; }
+.chat-tag { font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.7rem; }
+.qps { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.8rem; }
+.qp { font-size: 0.76rem; padding: 0.38rem 0.85rem; border-radius: 100px; border: 1px solid rgba(255,255,255,0.1); background: transparent; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.qp:hover { border-color: var(--green-light); color: var(--cream); background: rgba(90,168,50,0.08); }
+.chat-msgs { display: flex; flex-direction: column; gap: 0.7rem; margin-bottom: 0.8rem; }
+.msg { padding: 0.85rem 1rem; border-radius: 8px; font-size: 0.86rem; line-height: 1.65; max-width: 85%; white-space: pre-wrap; }
+.msg.user { background: rgba(45,90,27,0.22); border: 1px solid rgba(90,168,50,0.18); color: var(--cream); align-self: flex-end; }
+.msg.ai { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: rgba(245,240,232,0.82); align-self: flex-start; }
+.chat-row { display: flex; gap: 0.6rem; }
+.chat-in { flex: 1; padding: 0.78rem 1rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; color: var(--cream); font-family: 'DM Sans', sans-serif; font-size: 0.88rem; outline: none; }
+.chat-in:focus { border-color: var(--green-light); }
+.chat-in::placeholder { color: var(--muted); }
+.chat-send { padding: 0.78rem 1.2rem; background: var(--green); border: none; border-radius: 6px; color: var(--cream); font-size: 0.88rem; font-weight: 500; cursor: pointer; transition: background 0.2s; flex-shrink: 0; }
+.chat-send:hover { background: var(--green-mid); }
+.chat-send:disabled { background: rgba(255,255,255,0.07); color: var(--muted); cursor: not-allowed; }
+.restart-link { text-align: center; font-size: 0.8rem; color: var(--muted); margin-top: 1.2rem; cursor: pointer; }
+.restart-link:hover { color: var(--cream); }
+
+@media (max-width: 680px) {
+  header { padding: 0.9rem 1.2rem; }
+  #appScreen { padding: 1.2rem 1rem 3rem; }
+  .result-grid { grid-template-columns: 1fr; }
+  .cta-row { grid-template-columns: 1fr; }
+  .step-label { display: none; }
+  .step-line { max-width: 24px; }
+  .addr-row { flex-direction: column; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Mäh<span>Maestro</span> <span style="font-family:'DM Sans',sans-serif;font-size:0.75rem;font-weight:300;opacity:0.4">KI</span></div>
+  <div style="display:flex;gap:0.6rem;align-items:center;">
+    <div class="hbadge">🤖 Privat-Tool</div>
+    <button class="hkey" onclick="showGmapsSettings()" title="Google Maps Key">🗺️ Maps Key</button>
+  </div>
+</header>
+
+<!-- SETUP SCREEN -->
+
+<div id="gmapsModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:#1a1f16;border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:2rem;max-width:420px;width:90%;">
+    <div style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;margin-bottom:0.5rem;">🗺️ Google Maps Key</div>
+    <div style="font-size:0.82rem;color:#7a8070;margin-bottom:1rem;line-height:1.6;">Optional: Für echte Satellitenbilder. Ohne Key läuft die KI-Analyse trotzdem vollständig.</div>
+    <input class="key-input" id="gmapsInline" type="password" placeholder="AIza..." style="margin-bottom:0.8rem;">
+    <div style="display:flex;gap:0.8rem;">
+      <button onclick="saveGmapsKey()" style="flex:1;padding:0.7rem;background:#2d5a1b;border:none;border-radius:6px;color:#f5f0e8;font-family:'DM Sans',sans-serif;cursor:pointer;">Speichern</button>
+      <button onclick="document.getElementById('gmapsModal').style.display='none'" style="padding:0.7rem 1.2rem;background:transparent;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#7a8070;font-family:'DM Sans',sans-serif;cursor:pointer;">Schließen</button>
+    </div>
+  </div>
+</div>
+<div id="setupScreen" style="display:none">
+  <div class="setup-box">
+    <div style="font-size:2rem;margin-bottom:0.8rem">🔑</div>
+    <div class="setup-title">API-Keys einrichten</div>
+    <div class="setup-sub">Einmalig eingeben — werden lokal in deinem Browser gespeichert.</div>
+
+    <div class="key-block">
+      <div class="key-label">Anthropic API-Key <span class="key-required">● Pflicht</span></div>
+      <input class="key-input" id="anthKey" type="password" placeholder="sk-ant-..." oninput="checkSetup()">
+      <div class="key-hint">→ <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a> · API Keys · Create Key</div>
+      <div class="err" id="anthErr">Bitte gültigen Anthropic-Key eingeben</div>
+    </div>
+
+    <div class="key-block">
+      <div class="key-label">Google Maps API-Key <span class="key-optional">○ Optional (für Satellitenbilder)</span></div>
+      <input class="key-input" id="gmapsKey" type="password" placeholder="AIza..." oninput="checkSetup()">
+      <div class="key-hint">→ <a href="https://console.cloud.google.com/apis/credentials" target="_blank">Google Cloud Console</a> · APIs aktivieren: "Maps Static API" · Key erstellen · ~$0.002 pro Bild</div>
+    </div>
+
+    <div class="sat-info">
+      <strong>Mit Google Maps Key:</strong> Die KI lädt automatisch ein echtes Satellitenbild deiner Adresse und analysiert das Grundstück visuell.<br>
+      <strong>Ohne Key:</strong> Analyse nur auf Basis deiner Angaben — trotzdem sehr präzise.
+    </div>
+
+    <button class="btn-setup" id="btnSetup" onclick="saveKeys()" disabled>Speichern & starten →</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <div class="steps-bar">
+    <div class="step-item"><div class="step-num active" id="sn1">1</div><div class="step-label active" id="sl1">Eingabe</div></div>
+    <div class="step-line"></div>
+    <div class="step-item"><div class="step-num" id="sn2">2</div><div class="step-label" id="sl2">Details</div></div>
+    <div class="step-line"></div>
+    <div class="step-item"><div class="step-num" id="sn3">3</div><div class="step-label" id="sl3">Analyse</div></div>
+    <div class="step-line"></div>
+    <div class="step-item"><div class="step-num" id="sn4">4</div><div class="step-label" id="sl4">Ergebnis</div></div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div id="step1">
+    <div class="panel">
+      <div class="panel-tag">Schritt 1 · Grundstück erfassen</div>
+      <div class="panel-h">Zeig mir dein <em>Grundstück</em></div>
+      <div class="panel-sub">Fotos hochladen und/oder Adresse eingeben. Mit Google-Key wird ein Satellitenbild automatisch analysiert.</div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">📸 Eigene Fotos (optional)</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="uicon">☁️</div>
+        <div class="utxt">Fotos hochladen oder hierher ziehen</div>
+        <div class="uhint">Garten, Hanglagen, Engstellen · JPG / PNG · max. 8 Bilder</div>
+      </div>
+      <input type="file" id="fileInput" multiple accept="image/*" style="display:none" onchange="handleFiles(this.files)">
+      <div class="preview-grid" id="previewGrid"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag" id="satPanelTag">🛰️ Adress-Analyse</div>
+      <div style="font-size:0.83rem;color:var(--muted);margin-bottom:0.5rem" id="satPanelSub">Adresse eingeben — die KI analysiert das Grundstück per Satellitenbild.</div>
+      <div class="addr-row">
+        <input class="addr-input" id="addrInput" type="text" placeholder="z.B. Musterstraße 12, 53115 Bonn" oninput="checkStep1()">
+        <button class="btn-sat" id="btnSat" onclick="loadSatellite()" disabled>🛰️ Satellitenbild laden</button>
+      </div>
+      <div class="sat-loading" id="satLoading">🛰️ Satellitenbild wird geladen...</div>
+      <div id="satPreview" style="display:none;margin-top:1rem;border-radius:8px;overflow:hidden;position:relative;">
+        <div style="position:relative;display:inline-block;width:100%;">
+          <img id="satImg" src="" alt="Satellitenbild" style="width:100%;max-height:320px;object-fit:cover;display:block;border-radius:8px;">
+          <canvas id="satCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:8px;pointer-events:none;"></canvas>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.5);border-radius:0 0 8px 8px;">
+          <span style="font-size:0.75rem;color:rgba(255,255,255,0.8);" id="satAddrLabel"></span>
+          <div style="display:flex;gap:0.5rem;align-items:center;">
+            <span id="satAnalysisStatus" style="font-size:0.72rem;background:rgba(90,168,50,0.8);color:#fff;padding:0.2rem 0.7rem;border-radius:100px;">✓ KI analysiert</span>
+            <button onclick="toggleAnnotations()" id="btnAnnotate" style="font-size:0.72rem;background:rgba(200,168,75,0.8);color:#fff;padding:0.2rem 0.7rem;border-radius:100px;border:none;cursor:pointer;">🎯 Einzeichnung ein</button>
+          </div>
+        </div>
+        <!-- Legend -->
+        <div id="satLegend" style="display:none;padding:0.6rem 0.8rem;background:rgba(0,0,0,0.4);font-size:0.72rem;color:rgba(255,255,255,0.7);display:flex;gap:1rem;flex-wrap:wrap;">
+          <span>🟢 Rasenfläche</span>
+          <span>🔴 Hindernisse</span>
+          <span>🟡 Engstellen</span>
+          <span>🔵 Mähroute</span>
+        </div>
+      </div>
+      <div id="satAnalysisBox" style="display:none;margin-top:0.8rem;background:rgba(45,90,27,0.15);border:1px solid rgba(90,168,50,0.3);border-radius:6px;padding:1rem;">
+        <div style="font-size:0.72rem;letter-spacing:0.08em;text-transform:uppercase;color:#5aa832;margin-bottom:0.5rem;">🛰️ KI-Grundstücksanalyse</div>
+        <div id="satAnalysisText" style="font-size:0.84rem;color:rgba(245,240,232,0.8);line-height:1.65;"></div>
+      </div>
+      <!-- Interactive Google Maps embed -->
+      <div id="interactiveMap" style="display:none;margin-top:1rem;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.1);">
+        <iframe id="mapIframe" width="100%" height="360" style="border:0;display:block;" allowfullscreen loading="lazy"></iframe>
+        <div style="padding:0.6rem 0.8rem;background:rgba(0,0,0,0.4);font-size:0.75rem;color:rgba(255,255,255,0.6);">
+          🗺️ Google Maps mit Grundstücksgrenzen · Zum Vergrößern klicken
+        </div>
+      </div>
+      <!-- Draw mode canvas -->
+      <div id="drawModePanel" style="display:none;margin-top:1rem;">
+        <div style="position:relative;display:inline-block;width:100%;">
+          <img id="satImgDraw" src="" style="width:100%;max-height:320px;object-fit:cover;display:block;border-radius:8px;cursor:crosshair;">
+          <canvas id="drawCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;border-radius:8px;cursor:crosshair;"></canvas>
+        </div>
+        <div style="margin-top:0.6rem;display:flex;gap:0.6rem;flex-wrap:wrap;align-items:center;">
+          <button onclick="clearDrawing()" style="padding:0.4rem 0.9rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:4px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;">✕ Löschen</button>
+          <button onclick="analyseDrawnArea()" id="btnAnalyseDraw" style="padding:0.4rem 0.9rem;background:var(--green);border:none;border-radius:4px;color:var(--cream);font-family:'DM Sans',sans-serif;font-size:0.8rem;cursor:pointer;" disabled>🤖 Markierten Bereich analysieren</button>
+          <span style="font-size:0.75rem;color:var(--muted);" id="drawHint">Klicke auf die Ecken deines Grundstücks um es einzuzeichnen. Doppelklick zum Abschließen.</span>
+        </div>
+      </div>
+      <div class="sat-nokey" id="satNoKey" style="display:none">ℹ️ Kein Google Maps Key hinterlegt — die KI analysiert trotzdem auf Basis deiner Angaben. <span style="color:var(--gold);cursor:pointer" onclick="resetKeys()">Key nachträglich hinzufügen →</span></div>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn-next" id="btnNext1" onclick="goStep(2)" disabled>Weiter zu Details →</button>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div id="step2" style="display:none">
+    <div class="panel">
+      <div class="panel-tag">Schritt 2 · Details</div>
+      <div class="panel-h">Ein paar <em>Fragen</em></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">Rasenfläche</div>
+      <div class="chips" id="chips-size">
+        <div class="chip" onclick="pick('size',this,'Bis 400 m²')">Bis 400 m²</div>
+        <div class="chip" onclick="pick('size',this,'400–800 m²')">400–800 m²</div>
+        <div class="chip" onclick="pick('size',this,'800–1.500 m²')">800–1.500 m²</div>
+        <div class="chip" onclick="pick('size',this,'1.500–3.000 m²')">1.500–3.000 m²</div>
+        <div class="chip" onclick="pick('size',this,'Über 3.000 m²')">Über 3.000 m²</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">Hangneigung</div>
+      <div class="chips" id="chips-slope">
+        <div class="chip" onclick="pick('slope',this,'Flach (unter 15%)')">Flach (unter 15%)</div>
+        <div class="chip" onclick="pick('slope',this,'Leicht (15–35%)')">Leicht (15–35%)</div>
+        <div class="chip" onclick="pick('slope',this,'Steil (35–60%)')">Steil (35–60%)</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">Rasenbereiche / Zonen</div>
+      <div class="chips" id="chips-zones">
+        <div class="chip" onclick="pick('zones',this,'1 Bereich')">1 Bereich</div>
+        <div class="chip" onclick="pick('zones',this,'2–3 Bereiche')">2–3 Bereiche</div>
+        <div class="chip" onclick="pick('zones',this,'4+ Bereiche')">4+ Bereiche</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">Besonderheiten (Mehrfachauswahl)</div>
+      <div class="chips" id="chips-special">
+        <div class="chip" onclick="toggleChip(this,'Enge Durchgänge')">Enge Durchgänge</div>
+        <div class="chip" onclick="toggleChip(this,'Viele Hindernisse')">Viele Hindernisse</div>
+        <div class="chip" onclick="toggleChip(this,'Bäume & Wurzeln')">Bäume & Wurzeln</div>
+        <div class="chip" onclick="toggleChip(this,'Kinder/Tiere im Garten')">Kinder/Tiere</div>
+        <div class="chip" onclick="toggleChip(this,'Lärmempfindliche Nachbarn')">Lärmempfindlich</div>
+        <div class="chip" onclick="toggleChip(this,'Regenwasserpfützen')">Pfützen/Nässe</div>
+        <div class="chip" onclick="toggleChip(this,'Formaler englischer Rasen gewünscht')">Formaler Rasen</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">Budget (inkl. Roboter & Installation)</div>
+      <div class="slider-row">
+        <input type="range" min="500" max="7000" step="100" value="2000" id="budgetSlider" oninput="updBudget(this.value)">
+        <span class="slider-val" id="budgetVal">2.000 €</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-tag">Sonstige Infos für die KI (optional)</div>
+      <textarea class="extra-ta" id="extraInfo" placeholder="z.B. Teich im Garten, steiler Bereich hinten links, Roboter soll nachts nicht mähen, Hund im Garten..."></textarea>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn-back" onclick="goStep(1)">← Zurück</button>
+      <button class="btn-next" id="btnNext2" onclick="startAnalysis()" disabled>KI-Analyse starten →</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div id="step3" style="display:none">
+    <div class="analyzing-wrap">
+      <div class="spinner"></div>
+      <div style="font-family:'Playfair Display',serif;font-size:1.35rem;font-weight:700;margin-bottom:0.4rem">KI analysiert dein Grundstück</div>
+      <div style="font-size:0.85rem;color:var(--muted)">Claude verarbeitet alle Infos und vergleicht die Modelle...</div>
+      <div class="asteps">
+        <div class="astep" id="as1">📸 &nbsp;Fotos & Satellitenbilder analysieren</div>
+        <div class="astep" id="as2">🛰️ &nbsp;Grundstücksstruktur berechnen</div>
+        <div class="astep" id="as3">⚖️ &nbsp;STIGA, STIHL, AL-KO, EGO vergleichen</div>
+        <div class="astep" id="as4">✅ &nbsp;Empfehlung mit Begründung erstellen</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div id="step4" style="display:none">
+    <div class="panel">
+      <div class="panel-tag">Schritt 4 · Ergebnis</div>
+      <div class="panel-h">Deine <em>Empfehlung</em></div>
+    </div>
+
+    <div class="result-grid" id="resultGrid"></div>
+
+    <div class="ai-box">
+      <div class="ai-box-title">🤖 KI-Begründung (Claude Sonnet)</div>
+      <div class="ai-text" id="aiReasoning"></div>
+    </div>
+
+    <div class="cta-row">
+      <button class="btn-gold" id="btnEmail">📧 Angebot per Mail anfragen</button>
+      <button class="btn-out" onclick="showChat()">💬 Weitere Fragen stellen</button>
+    </div>
+
+    <div class="chat-section" id="chatSection" style="display:none">
+      <div class="chat-tag">Fragen zur Empfehlung</div>
+      <div class="qps" id="quickPrompts"></div>
+      <div class="chat-msgs" id="chatMsgs"></div>
+      <div class="chat-row">
+        <input class="chat-in" id="chatIn" type="text" placeholder="Weitere Frage..." onkeydown="if(event.key==='Enter')sendChat()">
+        <button class="chat-send" id="chatSend" onclick="sendChat()">Senden →</button>
+      </div>
+    </div>
+
+    <div class="restart-link" onclick="restart()">↺ Neue Analyse starten</div>
+  </div>
+</div>
+
+<script>
+const S = {
+  anthKey:'', gmapsKey:'',
+  files:[], fileB64:[],
+  addr:'', satB64:null, satLoaded:false,
+  picks:{}, specials:[], budget:2000, extra:'',
+  result:null, chatHistory:[]
+};
+
+// ── SETUP ──
+window.addEventListener('DOMContentLoaded', () => {
+  const gk = localStorage.getItem('mm_gmaps');
+  S.gmapsKey = gk ? gk.trim() : '';
+  showApp();
+  const ak = null; // handled server-side
+  document.getElementById('anthKey').addEventListener('input', checkSetup);
+  document.getElementById('gmapsKey').addEventListener('input', checkSetup);
+});
+
+function checkSetup() {
+  const ak = document.getElementById('anthKey').value.trim();
+  document.getElementById('btnSetup').disabled = ak.length < 10;
+}
+
+function saveKeys() {
+  const ak = document.getElementById('anthKey').value.trim().replace(/\s/g,'');
+  const gk = document.getElementById('gmapsKey').value.trim().replace(/\s/g,'');
+  if (!ak.startsWith('sk-')) { document.getElementById('anthErr').style.display='block'; return; }
+  document.getElementById('anthErr').style.display='none';
+  S.anthKey = ak; S.gmapsKey = gk;
+  localStorage.setItem('mm_anth', ak);
+  if (gk) localStorage.setItem('mm_gmaps', gk);
+  showApp();
+}
+
+function resetKeys() {
+  localStorage.removeItem('mm_anth'); localStorage.removeItem('mm_gmaps');
+  S.anthKey=''; S.gmapsKey='';
+  document.getElementById('appScreen').style.display='none';
+  document.getElementById('setupScreen').style.display='flex';
+  document.getElementById('anthKey').value='';
+  document.getElementById('gmapsKey').value='';
+  document.getElementById('btnSetup').disabled=true;
+  document.getElementById('anthErr').style.display='none';
+}
+
+function showApp() {
+  document.getElementById('setupScreen').style.display='none';
+  document.getElementById('appScreen').style.display='block';
+  // Show/hide satellite UI based on gmaps key
+  if (!S.gmapsKey) {
+    document.getElementById('satPanelTag').textContent = '📍 Adress-Analyse';
+    document.getElementById('satPanelSub').textContent = 'Adresse eingeben — die KI berücksichtigt den genauen Standort.';
+    document.getElementById('btnSat').style.display = 'none';
+    document.getElementById('satNoKey').style.display = 'block';
+  }
+}
+
+function showGmapsSettings() {
+  const saved = localStorage.getItem('mm_gmaps') || '';
+  document.getElementById('gmapsInline').value = saved;
+  document.getElementById('gmapsModal').style.display = 'flex';
+}
+function saveGmapsKey() {
+  const gk = document.getElementById('gmapsInline').value.trim();
+  S.gmapsKey = gk;
+  if (gk) localStorage.setItem('mm_gmaps', gk);
+  else localStorage.removeItem('mm_gmaps');
+  document.getElementById('gmapsModal').style.display = 'none';
+  // Update satellite UI
+  if (gk) {
+    document.getElementById('btnSat').style.display = 'inline-block';
+    document.getElementById('satNoKey').style.display = 'none';
+  }
+}
+// ── SATELLITE ANALYSIS & CANVAS ──
+let annotationsVisible = true;
+let lastAnalysis = null;
+
+// ── MAP MODE SWITCHING ──
+function switchMapMode(mode) {
+  // Update buttons
+  ['satellite','interactive','draw'].forEach(m => {
+    const btn = document.getElementById('btnMode' + m.charAt(0).toUpperCase() + m.slice(1));
+    if(btn) btn.classList.toggle('sel', m === mode);
+  });
+
+  document.getElementById('satPreview').style.display = mode === 'satellite' ? 'block' : 'none';
+  document.getElementById('interactiveMap').style.display = mode === 'interactive' ? 'block' : 'none';
+  document.getElementById('drawModePanel').style.display = mode === 'draw' ? 'block' : 'none';
+
+  if (mode === 'interactive' && S.addr && S.gmapsKey) {
+    // Load Google Maps embed with parcel layer
+    const encoded = encodeURIComponent(S.addr);
+    const iframe = document.getElementById('mapIframe');
+    // Use maps embed with satellite + labels which shows property lines
+    iframe.src = `https://www.google.com/maps/embed/v1/place?key=${S.gmapsKey}&q=${encoded}&zoom=19&maptype=satellite`;
+  }
+
+  if (mode === 'draw') {
+    // Copy satellite image to draw canvas
+    const drawImg = document.getElementById('satImgDraw');
+    drawImg.src = document.getElementById('satImg').src;
+    initDrawCanvas();
+  }
+}
+
+// ── DRAW MODE ──
+let drawPoints = [];
+let isDrawing = false;
+
+function initDrawCanvas() {
+  const canvas = document.getElementById('drawCanvas');
+  const img = document.getElementById('satImgDraw');
+
+  img.onload = () => setupDrawEvents(canvas, img);
+  if (img.complete && img.naturalWidth > 0) setupDrawEvents(canvas, img);
+}
+
+function setupDrawEvents(canvas, img) {
+  canvas.width = img.offsetWidth;
+  canvas.height = img.offsetHeight;
+  drawPoints = [];
+  isDrawing = true;
+
+  canvas.onclick = (e) => {
+    if (!isDrawing) return;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    drawPoints.push({
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY
+    });
+    redrawPolygon(canvas);
+    document.getElementById('btnAnalyseDraw').disabled = drawPoints.length < 3;
+    document.getElementById('drawHint').textContent = drawPoints.length < 3
+      ? `${drawPoints.length} Punkt${drawPoints.length !== 1 ? 'e' : ''} gesetzt — mindestens 3 für Analyse`
+      : `${drawPoints.length} Punkte — Analyse starten oder weitere Punkte setzen`;
+  };
+
+  canvas.ondblclick = (e) => {
+    isDrawing = false;
+    if (drawPoints.length >= 3) {
+      document.getElementById('btnAnalyseDraw').disabled = false;
+      document.getElementById('drawHint').textContent = '✓ Grundstück markiert — jetzt analysieren!';
+    }
+  };
+}
+
+function redrawPolygon(canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (drawPoints.length === 0) return;
+
+  // Fill
+  ctx.fillStyle = 'rgba(90, 168, 50, 0.2)';
+  ctx.strokeStyle = '#5aa832';
+  ctx.lineWidth = 2.5;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  drawPoints.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  if (drawPoints.length > 2) ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Points
+  drawPoints.forEach((p, i) => {
+    ctx.fillStyle = i === 0 ? '#c8a84b' : '#5aa832';
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+    ctx.fill();
+  });
+}
+
+function clearDrawing() {
+  drawPoints = [];
+  isDrawing = true;
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  document.getElementById('btnAnalyseDraw').disabled = true;
+  document.getElementById('drawHint').textContent = 'Klicke auf die Ecken deines Grundstücks. Doppelklick zum Abschließen.';
+}
+
+async function analyseDrawnArea() {
+  if (drawPoints.length < 3) return;
+  const btn = document.getElementById('btnAnalyseDraw');
+  btn.textContent = '⏳ Analysiert...'; btn.disabled = true;
+
+  // Crop the image to the drawn polygon area and analyse
+  const img = document.getElementById('satImgDraw');
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth || img.offsetWidth;
+  canvas.height = img.naturalHeight || img.offsetHeight;
+  const ctx = canvas.getContext('2d');
+
+  // Scale points to natural size
+  const scaleX = canvas.width / document.getElementById('drawCanvas').width;
+  const scaleY = canvas.height / document.getElementById('drawCanvas').height;
+
+  // Clip to polygon
+  ctx.beginPath();
+  drawPoints.forEach((p, i) => {
+    i === 0 ? ctx.moveTo(p.x*scaleX, p.y*scaleY) : ctx.lineTo(p.x*scaleX, p.y*scaleY);
+  });
+  ctx.closePath();
+  ctx.clip();
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  // Convert to base64
+  const croppedB64 = canvas.toDataURL('image/jpeg', 0.9).split(',')[1];
+
+  try {
+    // Calculate area estimate from polygon
+    let area = 0;
+    for (let i = 0; i < drawPoints.length; i++) {
+      const j = (i + 1) % drawPoints.length;
+      area += drawPoints[i].x * drawPoints[j].y;
+      area -= drawPoints[j].x * drawPoints[i].y;
+    }
+    area = Math.abs(area) / 2;
+    // Rough pixel-to-m2 conversion at zoom 19 (~0.3m per pixel)
+    const canvasW = document.getElementById('drawCanvas').width;
+    const canvasH = document.getElementById('drawCanvas').height;
+    const pixelRatio = (640 * 0.3) / canvasW; // meters per pixel
+    const estimatedM2 = Math.round(area * pixelRatio * pixelRatio);
+
+    const analysis = await analyseSatelliteImage(croppedB64, 'image/jpeg', S.addr + ' (markierter Bereich, ca. ' + estimatedM2 + ' m²)');
+
+    document.getElementById('satAnalysisBox').style.display = 'block';
+    document.getElementById('satAnalysisText').textContent = analysis.summary;
+
+    // Switch back to satellite view to show annotations on original image
+    switchMapMode('satellite');
+    const satImg = document.getElementById('satImg');
+    if (satImg.complete) drawAnnotations(analysis);
+
+    btn.textContent = '✓ Analysiert'; btn.disabled = false;
+  } catch(e) {
+    btn.textContent = '🤖 Erneut analysieren'; btn.disabled = false;
+    alert('Fehler: ' + e.message);
+  }
+}
+
+function toggleAnnotations() {
+  annotationsVisible = !annotationsVisible;
+  const btn = document.getElementById('btnAnnotate');
+  const canvas = document.getElementById('satCanvas');
+  const legend = document.getElementById('satLegend');
+  if (annotationsVisible && lastAnalysis) {
+    drawAnnotations(lastAnalysis);
+    btn.textContent = '🎯 Einzeichnung ein';
+    legend.style.display = 'flex';
+  } else {
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    btn.textContent = '🎯 Einzeichnung aus';
+    legend.style.display = 'none';
+  }
+}
+
+async function analyseSatelliteImage(b64, mimeType, addr) {
+  const prompt = `Analysiere dieses Satellitenbild eines Grundstücks (Adresse: ${addr}).
+
+Gib mir eine JSON-Antwort mit genau diesem Format (NUR JSON, kein Text davor/danach):
+{
+  "summary": "2-3 Sätze: geschätzte Rasenfläche in m², erkannte Strukturen, Besonderheiten",
+  "lawn_area_percent": 45,
+  "lawn_zones": [
+    {"x": 0.15, "y": 0.2, "w": 0.5, "h": 0.45, "label": "Hauptrasen"}
+  ],
+  "obstacles": [
+    {"x": 0.3, "y": 0.35, "label": "Baum"}
+  ],
+  "narrow_passages": [
+    {"x1": 0.2, "y1": 0.6, "x2": 0.4, "y2": 0.6, "label": "Engstelle"}
+  ],
+  "mow_path": [
+    {"x": 0.2, "y": 0.3}, {"x": 0.7, "y": 0.3}, {"x": 0.7, "y": 0.7}, {"x": 0.2, "y": 0.7}
+  ],
+  "estimated_area_m2": 800,
+  "slope_detected": false,
+  "recommended_zones": 1
+}
+
+Alle Koordinaten sind relativ (0.0 = links/oben, 1.0 = rechts/unten) bezogen auf das Bild.
+lawn_zones: Rechtecke um Rasenflächen (x,y = obere linke Ecke, w=Breite, h=Höhe)
+obstacles: Punkte für Hindernisse (Bäume, Teiche, Beete)
+narrow_passages: Linien für Engstellen
+mow_path: Vorgeschlagene Mähroute als Polygon`;
+
+  const resp = await fetch('/api/claude', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-5',
+      max_tokens: 1000,
+      messages: [{
+        role: 'user',
+        content: [
+          {type: 'image', source: {type: 'base64', media_type: mimeType, data: b64}},
+          {type: 'text', text: prompt}
+        ]
+      }]
+    })
+  });
+  const data = await resp.json();
+  if (data.error) throw new Error(data.error.message);
+  const text = data.content[0].text;
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('Kein JSON');
+  const result = JSON.parse(match[0]);
+  lastAnalysis = result;
+  // Auto-fill size chip based on estimated area
+  if (result.estimated_area_m2) {
+    const m2 = result.estimated_area_m2;
+    let sizeVal = 'Bis 400 m²';
+    if (m2 > 400 && m2 <= 800) sizeVal = '400–800 m²';
+    else if (m2 > 800 && m2 <= 1500) sizeVal = '800–1.500 m²';
+    else if (m2 > 1500 && m2 <= 3000) sizeVal = '1.500–3.000 m²';
+    else if (m2 > 3000) sizeVal = 'Über 3.000 m²';
+    // Auto-select chip
+    document.querySelectorAll('#chips-size .chip').forEach(c => {
+      if (c.textContent.trim() === sizeVal) {
+        c.classList.add('sel');
+        S.picks['size'] = sizeVal;
+        checkStep2();
+      }
+    });
+  }
+  if (result.recommended_zones) {
+    let zoneVal = '1 Bereich';
+    if (result.recommended_zones >= 4) zoneVal = '4+ Bereiche';
+    else if (result.recommended_zones >= 2) zoneVal = '2–3 Bereiche';
+    document.querySelectorAll('#chips-zones .chip').forEach(c => {
+      if (c.textContent.trim() === zoneVal) {
+        c.classList.add('sel');
+        S.picks['zones'] = zoneVal;
+        checkStep2();
+      }
+    });
+  }
+  return result;
+}
+
+function drawAnnotations(analysis) {
+  if (!analysis || !annotationsVisible) return;
+  const img = document.getElementById('satImg');
+  const canvas = document.getElementById('satCanvas');
+  const legend = document.getElementById('satLegend');
+  // Use getBoundingClientRect for accurate rendered size
+  const rect = img.getBoundingClientRect();
+  canvas.width = rect.width || img.offsetWidth;
+  canvas.height = rect.height || img.offsetHeight;
+  // Match canvas CSS size to image
+  canvas.style.width = '100%';
+  canvas.style.height = canvas.height + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const W = canvas.width, H = canvas.height;
+
+  // Draw lawn zones (green semi-transparent)
+  if (analysis.lawn_zones) {
+    analysis.lawn_zones.forEach(z => {
+      ctx.fillStyle = 'rgba(90, 168, 50, 0.22)';
+      ctx.strokeStyle = '#5aa832';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([]);
+      const rx = z.x * W, ry = z.y * H, rw = z.w * W, rh = z.h * H;
+      ctx.fillRect(rx, ry, rw, rh);
+      ctx.strokeRect(rx, ry, rw, rh);
+      // Label
+      ctx.fillStyle = '#5aa832';
+      ctx.font = 'bold 12px Arial';
+      ctx.fillText(z.label || 'Rasen', rx + 6, ry + 18);
+    });
+  }
+
+  // Draw mow path (blue dashed)
+  if (analysis.mow_path && analysis.mow_path.length > 1) {
+    ctx.strokeStyle = 'rgba(100, 180, 255, 0.85)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([8, 5]);
+    ctx.beginPath();
+    analysis.mow_path.forEach((p, i) => {
+      if (i === 0) ctx.moveTo(p.x * W, p.y * H);
+      else ctx.lineTo(p.x * W, p.y * H);
+    });
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Arrow at first point
+    const p0 = analysis.mow_path[0], p1 = analysis.mow_path[1];
+    const angle = Math.atan2((p1.y - p0.y) * H, (p1.x - p0.x) * W);
+    ctx.fillStyle = 'rgba(100,180,255,0.9)';
+    ctx.save(); ctx.translate(p0.x*W, p0.y*H); ctx.rotate(angle);
+    ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-6,-5); ctx.lineTo(-6,5); ctx.closePath();
+    ctx.fill(); ctx.restore();
+  }
+
+  // Draw obstacles (red circles)
+  if (analysis.obstacles) {
+    analysis.obstacles.forEach(o => {
+      const ox = o.x * W, oy = o.y * H;
+      ctx.fillStyle = 'rgba(220, 60, 60, 0.75)';
+      ctx.strokeStyle = '#dc3c3c';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      ctx.beginPath(); ctx.arc(ox, oy, 14, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 13px Arial';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('!', ox, oy);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      ctx.fillStyle = 'rgba(220,60,60,0.9)';
+      ctx.font = '11px Arial';
+      ctx.fillText(o.label || 'Hindernis', ox + 18, oy + 4);
+    });
+  }
+
+  // Draw narrow passages (yellow lines)
+  if (analysis.narrow_passages) {
+    analysis.narrow_passages.forEach(n => {
+      ctx.strokeStyle = 'rgba(255, 200, 50, 0.9)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(n.x1 * W, n.y1 * H);
+      ctx.lineTo(n.x2 * W, n.y2 * H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(255,200,50,0.9)';
+      ctx.font = '11px Arial';
+      ctx.fillText(n.label || 'Engstelle', n.x1*W + 4, n.y1*H - 5);
+    });
+  }
+
+  legend.style.display = 'flex';
+}
+
+// Redraw on window resize
+window.addEventListener('resize', () => { if (lastAnalysis) drawAnnotations(lastAnalysis); });
+
+// ── FILE UPLOAD ──
+const uz = document.getElementById('uploadZone');
+uz.addEventListener('dragover', e=>{e.preventDefault();uz.classList.add('drag');});
+uz.addEventListener('dragleave', ()=>uz.classList.remove('drag'));
+uz.addEventListener('drop', e=>{e.preventDefault();uz.classList.remove('drag');handleFiles(e.dataTransfer.files);});
+
+async function handleFiles(files) {
+  S.files = Array.from(files).slice(0,8);
+  S.fileB64 = [];
+  const grid = document.getElementById('previewGrid');
+  grid.innerHTML = '';
+  for (const f of S.files) {
+    const b64 = await toB64(f);
+    S.fileB64.push({b64: b64.split(',')[1], type: f.type});
+    const img = document.createElement('img');
+    img.className='preview-img'; img.src=b64;
+    grid.appendChild(img);
+  }
+  checkStep1();
+}
+
+function toB64(file) {
+  return new Promise(res=>{const r=new FileReader();r.onload=e=>res(e.target.result);r.readAsDataURL(file);});
+}
+
+// ── SATELLITE ──
+function checkStep1() {
+  S.addr = document.getElementById('addrInput').value.trim();
+  const hasInput = S.files.length>0 || S.addr.length>4 || S.satLoaded;
+  document.getElementById('btnNext1').disabled = !hasInput;
+  document.getElementById('btnSat').disabled = S.addr.length < 5 || !S.gmapsKey;
+}
+
+async function loadSatellite() {
+  if (!S.gmapsKey || !S.addr) return;
+  const btn = document.getElementById('btnSat');
+  const loading = document.getElementById('satLoading');
+  btn.disabled = true; btn.textContent = 'Lädt...';
+  loading.style.display = 'block';
+  document.getElementById('satPreview').style.display = 'none';
+
+  // Geocode address → lat/lng, then fetch satellite image
+  const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(S.addr)}&key=${S.gmapsKey}`;
+
+  try {
+    const geoResp = await fetch(geocodeUrl);
+    const geoData = await geoResp.json();
+
+    if (geoData.status !== 'OK' || !geoData.results.length) {
+      throw new Error('Adresse nicht gefunden. Bitte genauer eingeben.');
+    }
+
+    const loc = geoData.results[0].geometry.location;
+    const lat = loc.lat; const lng = loc.lng;
+
+    // Build Static Maps satellite URL — zoom 19 = very close, good for gardens
+    const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=19&size=640x400&maptype=satellite&markers=color:red%7C${lat},${lng}&key=${S.gmapsKey}`;
+
+    // Fetch image and convert to base64 (needed for Claude)
+    const imgResp = await fetch(mapUrl);
+    if (!imgResp.ok) throw new Error('Satellitenbild konnte nicht geladen werden.');
+    const blob = await imgResp.blob();
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result;
+      S.satB64 = dataUrl.split(',')[1];
+      S.satMimeType = blob.type || 'image/png';
+      S.satLoaded = true;
+
+      // Show preview
+      const satImg = document.getElementById('satImg');
+      satImg.src = dataUrl;
+      document.getElementById('satAddrLabel').textContent = geoData.results[0].formatted_address;
+      loading.style.display = 'none';
+      document.getElementById('satPreview').style.display = 'block';
+      document.getElementById('mapTypeToggle').style.display = 'flex';
+      document.getElementById('mapTypeToggle').style.flexWrap = 'wrap';
+      btn.textContent = '🛰️ Neu laden';
+      btn.disabled = false;
+      checkStep1();
+
+      // Auto-analyse the satellite image with Claude
+      document.getElementById('satAnalysisStatus').textContent = '⏳ KI analysiert...';
+      try {
+        const analysis = await analyseSatelliteImage(S.satB64, S.satMimeType, S.addr);
+        S.satAnalysis = analysis;
+        document.getElementById('satAnalysisStatus').textContent = '✓ Analyse fertig';
+        document.getElementById('satAnalysisBox').style.display = 'block';
+        document.getElementById('satAnalysisText').textContent = analysis.summary;
+        // Draw annotations on canvas
+        satImg.onload = () => drawAnnotations(analysis);
+        // Wait for image to be rendered in DOM before drawing
+        setTimeout(() => drawAnnotations(analysis), 300);
+      } catch(err) {
+        document.getElementById('satAnalysisStatus').textContent = '✓ Bild geladen';
+        console.log('Sat analysis error:', err);
+      }
+    };
+    reader.readAsDataURL(blob);
+
+  } catch(e) {
+    loading.style.display = 'none';
+    btn.textContent = '🛰️ Satellitenbild laden';
+    btn.disabled = false;
+    alert('Fehler: ' + e.message + '\n\nBitte Google Maps API-Key prüfen und sicherstellen dass "Maps Static API" & "Geocoding API" aktiviert sind.');
+  }
+}
+
+// ── CHIPS ──
+function pick(key, el, val) {
+  document.querySelectorAll('#chips-'+key+' .chip').forEach(c=>c.classList.remove('sel'));
+  el.classList.add('sel'); S.picks[key]=val; checkStep2();
+}
+function toggleChip(el, val) {
+  el.classList.toggle('sel');
+  if(el.classList.contains('sel')){if(!S.specials.includes(val))S.specials.push(val);}
+  else{S.specials=S.specials.filter(v=>v!==val);}
+}
+function checkStep2() {
+  document.getElementById('btnNext2').disabled=!(S.picks.size&&S.picks.slope&&S.picks.zones);
+}
+function updBudget(v) {
+  S.budget=parseInt(v);
+  document.getElementById('budgetVal').textContent=parseInt(v).toLocaleString('de-DE')+' €';
+}
+
+// ── STEPS ──
+function goStep(n) {
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('step'+i).style.display=i===n?'block':'none';
+    const sn=document.getElementById('sn'+i), sl=document.getElementById('sl'+i);
+    sn.classList.remove('active','done'); sl.classList.remove('active');
+    if(i<n){sn.classList.add('done');sn.textContent='✓';}
+    else if(i===n){sn.classList.add('active');sn.textContent=i;sl.classList.add('active');}
+    else{sn.textContent=i;}
+  });
+  window.scrollTo(0,0);
+}
+
+// ── ANALYSIS ──
+async function startAnalysis() {
+  S.extra = document.getElementById('extraInfo').value.trim();
+  goStep(3);
+  animateSteps();
+  await runClaude();
+}
+
+function animateSteps() {
+  const ids=['as1','as2','as3','as4'];
+  ids.forEach((id,i)=>{
+    setTimeout(()=>{
+      ids.forEach(x=>document.getElementById(x).classList.remove('cur'));
+      document.getElementById(id).classList.add('cur');
+      if(i>0)document.getElementById(ids[i-1]).classList.add('done');
+    }, i*1100);
+  });
+}
+
+async function runClaude() {
+  const content = [];
+
+  // 1. User photos
+  S.fileB64.forEach(img=>{
+    content.push({type:'image',source:{type:'base64',media_type:img.type,data:img.b64}});
+  });
+
+  // 2. Satellite image (if loaded)
+  if (S.satLoaded && S.satB64) {
+    content.push({type:'image',source:{type:'base64',media_type:S.satMimeType||'image/png',data:S.satB64}});
+    content.push({type:'text',text:`Das obige Bild ist ein Google Maps Satellitenbild der Adresse: "${S.addr}". Bitte analysiere dieses Grundstück genau: erkenne die Rasenfläche, Gebäude, Wege, Hindernisse, mögliche Steigungen und Zonen.`});
+  }
+
+  // 3. Text prompt
+  content.push({type:'text', text: buildPrompt()});
+
+  try {
+    const resp = await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',
+        max_tokens:1600,
+        system:`Du bist der MähMaestro KI-Berater. Du analysierst Grundstücke visuell (Fotos, Satellitenbilder) und empfiehlst den optimalen Mähroboter.
+
+SORTIMENT:
+- STIGA A 6v: bis 600 m², GPS-RTK kabellos, 10 Zonen, KI-Kamera, bis 35% Steigung, ab 899€
+- STIGA A 15v: bis 1.500 m², GPS-RTK Quad-Band, 20 Zonen, bis 45%, 3J Garantie, ab 1.459€
+- STIGA A 3000: bis 3.000 m², 30 Zonen, Aluminium, 150 Hindernisse erkannt, bis 45%, ab 3.199€
+- STIHL iMOW 5: bis 1.500 m², App-Steuerung, bis 35%, 1.999€
+- STIHL iMOW 6 EVO: bis 3.000 m², bis 45% (EVO: 60%), dynamischer Mähplan, Alexa, ab 2.699€
+- STIHL iMOW 7 EVO: bis 5.000 m², Traktionsräder, bis 60%, ab 4.399€
+- AL-KO Robolinho 520 W: bis 550 m², Double-Cut, 60dB leise, Alexa, 839€
+- AL-KO Robolinho 822 W: bis 800 m², Double-Cut, Alexa, 2+2J Garantie, 1.149€
+- AL-KO Robolinho 2323 W: bis 3.000 m², GPS, Alexa, 1.999€
+
+Wenn ein Satellitenbild vorhanden ist, analysiere es detailliert: Schätze die Rasenfläche, erkenne Hindernisse, Zonen, Hanglage und Grundstücksstruktur. Erwähne was du konkret siehst.
+
+Antworte NUR in diesem JSON-Format (kein Text davor/danach):
+{
+  "rec1": { "brand": "...", "model": "...", "price": "...", "reasons": ["...", "...", "..."] },
+  "rec2": { "brand": "...", "model": "...", "price": "...", "reasons": ["...", "..."] },
+  "sat_analysis": "Was ich im Satellitenbild erkenne (nur ausfüllen wenn Satellitenbild vorhanden, sonst leer lassen): Rasenfläche ca. X m², ...",
+  "reasoning": "2-3 Sätze persönliche Begründung auf Deutsch, konkret auf die Grundstückssituation bezogen."
+}`,
+        messages:[{role:'user',content}]
+      })
+    });
+
+    const data = await resp.json();
+    if(data.error) throw new Error(data.error.message);
+    const text = data.content[0].text;
+    const match = text.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('Unerwartetes Antwortformat');
+    S.result = JSON.parse(match[0]);
+    S.chatHistory = [{role:'user',content:[{type:'text',text:buildPrompt()}]},{role:'assistant',content:text}];
+    showResult();
+  } catch(e) {
+    goStep(2);
+    
+    alert('Fehler: '+e.message+'\n\nBitte:\n1. Key unter console.anthropic.com prüfen\n2. Guthaben aufladen\n3. Key neu eingeben (Klick auf 🔑 Keys oben rechts)');
+  }
+}
+
+function buildPrompt() {
+  let p = '## MähMaestro Grundstücks-Analyse\n\n';
+  if(S.fileB64.length) p+=`Eigene Fotos: ${S.fileB64.length} Bild(er) beigefügt (siehe oben).\n`;
+  if(S.satLoaded) p+=`Satellitenbild: Google Maps Aufnahme der Adresse "${S.addr}" beigefügt (siehe oben).\n`;
+  else if(S.addr) p+=`Adresse: ${S.addr}\n`;
+  p+=`\nKundenangaben:\n- Rasenfläche: ${S.picks.size||'nicht angegeben'}\n- Hangneigung: ${S.picks.slope||'nicht angegeben'}\n- Zonen: ${S.picks.zones||'nicht angegeben'}\n- Budget: ${S.budget.toLocaleString('de-DE')} €\n`;
+  if(S.specials.length) p+=`- Besonderheiten: ${S.specials.join(', ')}\n`;
+  if(S.extra) p+=`\nZusätzliche Hinweise: ${S.extra}\n`;
+  p+='\nBitte analysiere und empfehle den optimalen Mähroboter aus dem Sortiment.';
+  return p;
+}
+
+// ── RESULT ──
+function showResult() {
+  goStep(4);
+  const r = S.result;
+
+  // Show satellite image in result if available
+  const satHtml = S.satLoaded && S.satB64 ? `
+    <div class="sat-result">
+      <img src="data:${S.satMimeType};base64,${S.satB64}" alt="Satellitenbild">
+      <div class="sat-result-label">🛰️ Analysiertes Satellitenbild · ${document.getElementById('addrInput').value}</div>
+    </div>` : '';
+
+  // Satellite analysis if available
+  const satAnalysis = r.sat_analysis ? `<div style="margin-top:0.8rem;padding:0.8rem;background:rgba(90,168,50,0.08);border-radius:6px;border:1px solid rgba(90,168,50,0.15);font-size:0.8rem;color:rgba(245,240,232,0.65);line-height:1.6;">🛰️ <strong style="color:var(--green-light)">Satellitenbild-Analyse:</strong> ${r.sat_analysis}</div>` : '';
+
+  document.getElementById('resultGrid').innerHTML=`
+    <div class="result-main">
+      <div class="result-badge">✓ Empfohlen</div>
+      <div class="res-brand">${r.rec1.brand}</div>
+      <div class="res-model" id="rec1Name">${r.rec1.model}</div>
+      <div class="res-price">${r.rec1.price}</div>
+      <div class="reasons">${r.rec1.reasons.map(x=>`<div class="ritem"><span class="rcheck">✓</span>${x}</div>`).join('')}</div>
+      ${satAnalysis}
+    </div>
+    <div>
+      <div class="result-alt" style="margin-bottom:1rem">
+        <div style="font-size:0.68rem;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:0.3rem">Alternative</div>
+        <div class="res-brand">${r.rec2.brand}</div>
+        <div class="res-model" style="font-size:1.35rem">${r.rec2.model}</div>
+        <div class="res-price">${r.rec2.price}</div>
+        <div class="reasons">${r.rec2.reasons.map(x=>`<div class="ritem"><span class="rcheck" style="color:var(--muted)">✓</span>${x}</div>`).join('')}</div>
+      </div>
+      ${satHtml}
+    </div>
+  `;
+
+  // Stream reasoning
+  const el=document.getElementById('aiReasoning');
+  el.innerHTML='';
+  let i=0;
+  const cur=document.createElement('span');cur.className='ai-cursor';el.appendChild(cur);
+  const iv=setInterval(()=>{
+    if(i<r.reasoning.length){el.insertBefore(document.createTextNode(r.reasoning[i]),cur);i++;}
+    else{clearInterval(iv);cur.remove();}
+  },16);
+
+  // Email button
+  document.getElementById('btnEmail').onclick=()=>{
+    const sub=encodeURIComponent(`Anfrage: ${r.rec1.model} – MähMaestro KI-Empfehlung`);
+    const body=encodeURIComponent(`Hallo MähMaestro-Team,\n\ndie KI hat folgende Empfehlung erstellt:\n\n✓ ${r.rec1.brand} ${r.rec1.model} (${r.rec1.price})\n\nMeine Angaben:\n- Fläche: ${S.picks.size}\n- Hangneigung: ${S.picks.slope}\n- Budget: ${S.budget.toLocaleString('de-DE')} €\n${S.addr?'- Adresse: '+S.addr+'\n':''}\nBitte um ein konkretes Angebot.\n\nViele Grüße`);
+    window.open(`mailto:info@maehmaestro.de?subject=${sub}&body=${body}`,'_blank');
+  };
+
+  // Quick prompts
+  document.getElementById('quickPrompts').innerHTML=[
+    `Was kostet die Installation des ${r.rec1.model}?`,
+    `${r.rec1.model} vs ${r.rec2.model} – was ist besser für mich?`,
+    'Welcher Wartungsvertrag passt dazu?',
+    'Wie lange dauert die Installation?'
+  ].map(q=>`<button class="qp" onclick="askChat('${q.replace(/'/g,"\\'")}')">${q}</button>`).join('');
+}
+
+// ── CHAT ──
+function showChat(){
+  document.getElementById('chatSection').style.display='block';
+  document.getElementById('chatSection').scrollIntoView({behavior:'smooth'});
+}
+function askChat(q){document.getElementById('chatIn').value=q;sendChat();}
+
+async function sendChat(){
+  const inp=document.getElementById('chatIn');
+  const q=inp.value.trim();if(!q)return;
+  inp.value='';document.getElementById('chatSend').disabled=true;
+  addMsg('user',q);
+  const thinking=addMsg('ai','...');
+  S.chatHistory.push({role:'user',content:q});
+  try{
+    const resp=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-5',max_tokens:800,
+        system:`Du bist MähMaestro KI-Berater. Empfehlung: ${S.result?.rec1?.brand} ${S.result?.rec1?.model}. Beantworte Folgefragen kurz und konkret auf Deutsch.`,
+        messages:S.chatHistory.map(m=>({role:m.role,content:typeof m.content==='string'?m.content:m.content}))
+      })
+    });
+    const data=await resp.json();
+    const ans=data.content[0].text;
+    thinking.textContent=ans;
+    S.chatHistory.push({role:'assistant',content:ans});
+  }catch(e){thinking.textContent='Fehler: '+e.message;}
+  document.getElementById('chatSend').disabled=false;
+}
+function addMsg(role,text){
+  const box=document.getElementById('chatMsgs');
+  const el=document.createElement('div');
+  el.className='msg '+role;el.textContent=text;
+  box.appendChild(el);el.scrollIntoView({behavior:'smooth'});return el;
+}
+
+// ── RESTART ──
+function restart(){
+  S.files=[];S.fileB64=[];S.addr='';S.satB64=null;S.satLoaded=false;
+  S.picks={};S.specials=[];S.budget=2000;S.extra='';S.result=null;S.chatHistory=[];
+  document.getElementById('previewGrid').innerHTML='';
+  document.getElementById('addrInput').value='';
+  document.getElementById('extraInfo').value='';
+  document.getElementById('budgetSlider').value=2000;
+  document.getElementById('budgetVal').textContent='2.000 €';
+  document.getElementById('satPreview').style.display='none';
+  document.getElementById('satLoading').style.display='none';
+  document.getElementById('btnSat').textContent='🛰️ Satellitenbild laden';
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('sel'));
+  document.getElementById('chatSection').style.display='none';
+  document.getElementById('chatMsgs').innerHTML='';
+  document.getElementById('btnNext1').disabled=true;
+  document.getElementById('btnNext2').disabled=true;
+  goStep(1);
+}
+</script>
+</body>
+</html>
