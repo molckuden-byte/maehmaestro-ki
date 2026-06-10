@@ -685,8 +685,8 @@ Antworte NUR in diesem JSON-Format (kein Text davor/danach):
     showResult();
   } catch(e) {
     goStep(2);
-    const keyPreview = S.anthKey ? S.anthKey.substring(0,12)+'...' : 'LEER';
-    alert('Fehler: '+e.message+'\n\nKey beginnt mit: '+keyPreview+'\n\nBitte:\n1. Key unter console.anthropic.com prüfen\n2. Guthaben aufladen\n3. Key neu eingeben (Klick auf 🔑 Keys oben rechts)');
+    
+    alert('Fehler: '+e.message+'\n\nBitte:\n1. Key unter console.anthropic.com prüfen\n2. Guthaben aufladen\n3. Key neu eingeben (Klick auf 🔑 Keys oben rechts)');
   }
 }
 
